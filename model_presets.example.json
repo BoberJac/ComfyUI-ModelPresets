@@ -5,6 +5,7 @@
     "weight_dtype": "default",
     "sage_attention": "auto",
     "torch_compile": false,
+    "upscale_model": "",
     "width": 1024,
     "height": 1536,
     "divide": false,

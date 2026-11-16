@@ -277,6 +277,7 @@ if _prompt_server is not None:
             "models": list_files("diffusion_models"),
             "checkpoints": list_files("checkpoints"),
             "vaes": list_files("vae"),
+            "upscale_models": list_files("upscale_models"),
             "samplers": list(comfy.samplers.KSampler.SAMPLERS),
             "schedulers": list(comfy.samplers.KSampler.SCHEDULERS),
             "sage_modes": sage_modes(),

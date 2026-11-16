@@ -24,6 +24,9 @@ Built for Anima workflows, but not tied to Anima: any model from
 - **Import from workflow**: scans the open workflow (including subgraph
   definitions) for model loaders and `KSampler` pairs and creates presets from
   them.
+- **Upscale model per preset** (optional): writes the file name into an
+  `UpscaleModelLoader`, so `2x-AnimeSharp` / `2x-AnimeMoSR` can follow the
+  checkpoint. Leave the field empty to keep whatever the graph has now.
 - **Auto-save**: panel edits are written to JSON and applied to the targets
   after a short pause and again right before the prompt is queued.
 
@@ -83,7 +86,7 @@ The panel edits settings, but a `KSampler` widget cannot be driven by a link
 (`sampler_name` and `scheduler` are combo widgets), so the frontend writes the
 values into real nodes. Bind them once per workflow:
 
-1. Press `Pick base` (or `Pick hires`, `Pick W`, `Pick H`, `Pick hiW`, `Pick hiH`).
+1. Press `Pick base` (or `Pick hires`, `Pick W`, `Pick H`, `Pick hiW`, `Pick hiH`, `Pick upscale`).
 2. Click the target node on the canvas, even if it lives in another subgraph.
 3. Press the same button again to cancel pick mode.
 
@@ -101,6 +104,7 @@ the node that holds the number instead (`PrimitiveInt`, subgraph input).
     "weight_dtype": "default",
     "sage_attention": "auto",
     "torch_compile": false,
+    "upscale_model": "2x-AnimeSharp.pth",
     "width": 1200,
     "height": 1800,
     "divide": true,
@@ -119,6 +123,10 @@ greater than 1).
 
 The file is stored next to the node and is **not** committed to this repository:
 it is user data. Start from `model_presets.example.json`.
+
+`upscale_model` is for real upscale models used by `UpscaleModelLoader`
+(`2x-AnimeSharp`, `2x-AnimeMoSR`, ...). Post-processing nodes such as NAFNet are
+not a per-preset choice: leave the field empty and keep them wired as usual.
 
 ## Notes and limitations
 

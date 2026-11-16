@@ -22,6 +22,7 @@ const DEFAULT_PRESET = {
   weight_dtype: "default",
   sage_attention: "auto",
   torch_compile: false,
+  upscale_model: "",
   width: 1024,
   height: 1536,
   divide: false,
@@ -274,6 +275,7 @@ app.registerExtension({
           models: [],
           checkpoints: [],
           vaes: [],
+          upscale_models: [],
           samplers: ["euler", "euler_ancestral", "dpmpp_2m"],
           schedulers: ["normal", "simple", "karras"],
           sage_modes: ["auto", "disabled"],
@@ -300,6 +302,7 @@ app.registerExtension({
       const dtypeSelect = selectInput();
       const sageSelect = selectInput();
       const compileCheckbox = checkboxInput();
+      const upscaleSelect = selectInput();
 
       const rowLoader = make("div", "display:grid;grid-template-columns:90px 1fr;gap:4px;");
       rowLoader.append(
@@ -308,6 +311,9 @@ app.registerExtension({
         labelled("dtype", dtypeSelect),
         labelled("sage", sageSelect)
       );
+
+      const rowUpscale = make("div", "display:flex;flex-direction:column;gap:2px;");
+      rowUpscale.append(labelled("upscale model", upscaleSelect));
 
       const compileWrap = make("label", "display:flex;align-items:center;gap:6px;font-size:10px;color:#9ca3af;");
       compileWrap.append(compileCheckbox, document.createTextNode("torch.compile"));
@@ -418,6 +424,10 @@ app.registerExtension({
           if (!findWidget(target, ["steps"]) || !findWidget(target, ["cfg"])) {
             return "That node has no steps/cfg widgets: pick a KSampler.";
           }
+        } else if (role === "upscale") {
+          if (!findWidget(target, ["model_name"])) {
+            return "That node has no model_name widget: pick an UpscaleModelLoader.";
+          }
         } else if (!findWidget(target, ["width", "height", "value"])) {
           return "That node has no width/height/value widget.";
         }
@@ -470,7 +480,7 @@ app.registerExtension({
         if (!bindTarget(role, target)) {
           // Keep pick mode armed so the next click can fix the mistake.
           pendingPick = { role, button, label };
-          button.textContent = "click a node…";
+          button.textContent = "click a node...";
         }
       }
 
@@ -482,7 +492,7 @@ app.registerExtension({
         }
         if (pendingPick) pendingPick.button.textContent = pendingPick.label;
         pendingPick = { role, button, label: button.textContent };
-        button.textContent = "click a node…";
+        button.textContent = "click a node...";
         setStatus("Pick mode: click the target node. A subgraph instance opens itself for sampler roles.");
       }
 
@@ -493,7 +503,8 @@ app.registerExtension({
         pickButton("width", "Pick W"),
         pickButton("height", "Pick H"),
         pickButton("hiresWidth", "Pick hiW"),
-        pickButton("hiresHeight", "Pick hiH")
+        pickButton("hiresHeight", "Pick hiH"),
+        pickButton("upscale", "Pick upscale")
       );
 
       // ---- main buttons ----
@@ -516,6 +527,7 @@ app.registerExtension({
 
       container.append(
         rowLoader,
+        rowUpscale,
         compileWrap,
         rowSize,
         rowSizeOptions,
@@ -564,6 +576,20 @@ app.registerExtension({
         setSelectOptions(modelSelect, values, modelSelect.value);
       }
 
+      function setUpscaleOptions(current) {
+        const values = ["", ...(state.options.upscale_models || [])];
+        if (current && !values.includes(current)) values.push(current);
+        upscaleSelect.replaceChildren(
+          ...values.map((value) => {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = value || "(leave unchanged)";
+            return option;
+          })
+        );
+        upscaleSelect.value = current || "";
+      }
+
       function fillPanel(preset) {
         state.isLoading = true;
         try {
@@ -572,6 +598,7 @@ app.registerExtension({
           setSelectOptions(modelSelect, sourceValues, preset.model ?? "");
           setSelectOptions(dtypeSelect, state.options.weight_dtypes, preset.weight_dtype ?? "default");
           setSelectOptions(sageSelect, state.options.sage_modes, preset.sage_attention ?? "auto");
+          setUpscaleOptions(preset.upscale_model ?? "");
           compileCheckbox.checked = Boolean(preset.torch_compile);
           widthInput.value = preset.width ?? 1024;
           heightInput.value = preset.height ?? 1536;
@@ -604,6 +631,7 @@ app.registerExtension({
           weight_dtype: dtypeSelect.value,
           sage_attention: sageSelect.value,
           torch_compile: compileCheckbox.checked,
+          upscale_model: upscaleSelect.value,
           width: parseInt(widthInput.value, 10) || 1024,
           height: parseInt(heightInput.value, 10) || 1536,
           divide: divideCheckbox.checked,
@@ -643,14 +671,15 @@ app.registerExtension({
           if (!ref) return `${label}: not set`;
           if (!target) {
             lost = true;
-            return `${label}: missing (${String(ref.graphId).slice(0, 8)}вЂ¦ #${ref.nodeId})`;
+            return `${label}: missing (${String(ref.graphId).slice(0, 8)}... #${ref.nodeId})`;
           }
           return `${label}: ${nodeLabel(target)} [${graphLabel(target.graph)}]`;
         };
         lines.push(describe("base", "base"));
         lines.push(describe("hires", "hires"));
-        lines.push([describe("width", "W"), describe("height", "H")].join(" В· "));
-        lines.push([describe("hiresWidth", "hiW"), describe("hiresHeight", "hiH")].join(" В· "));
+        lines.push([describe("width", "W"), describe("height", "H")].join("  /  "));
+        lines.push([describe("hiresWidth", "hiW"), describe("hiresHeight", "hiH")].join("  /  "));
+        lines.push(describe("upscale", "upscale"));
         setStatus(lines.join("\n"), lost ? "error" : "info");
       }
 
@@ -673,6 +702,10 @@ app.registerExtension({
         if (preset.hires?.enabled && hiresW) sizedHiresWidth = applySize(targets.hiresWidth, hiresW, "width");
         if (preset.hires?.enabled && hiresH) sizedHiresHeight = applySize(targets.hiresHeight, hiresH, "height");
 
+        const upscaleRequested = Boolean(preset.upscale_model);
+        const upscaleNode = findNodeRef(targets.upscale);
+        const upscaleOk = !upscaleRequested || setWidget(upscaleNode, ["model_name"], preset.upscale_model);
+
         const missing = [];
         if (!sampledBase) missing.push("base sampler");
         if (!sizedWidth) missing.push("width target");
@@ -680,6 +713,7 @@ app.registerExtension({
         if (preset.hires?.enabled && !sampledHires) missing.push("hires sampler");
         if (preset.hires?.enabled && hiresW && !sizedHiresWidth) missing.push("hires width");
         if (preset.hires?.enabled && hiresH && !sizedHiresHeight) missing.push("hires height");
+        if (upscaleRequested && !upscaleOk) missing.push("upscale model target");
         if (!silent) {
           refreshTargets();
           if (missing.length) {
@@ -765,7 +799,7 @@ app.registerExtension({
 
       function bindInputs() {
         const inputs = [
-          modelSelect, dtypeSelect, sageSelect, widthInput, heightInput, roundInput,
+          modelSelect, dtypeSelect, sageSelect, upscaleSelect, widthInput, heightInput, roundInput,
           hiresWidthInput, hiresHeightInput,
           baseRow.steps, baseRow.cfg, baseRow.sampler, baseRow.scheduler, baseRow.denoise,
           hiresRow.steps, hiresRow.cfg, hiresRow.sampler, hiresRow.scheduler, hiresRow.denoise,
@@ -916,6 +950,10 @@ app.registerExtension({
       async function importFromWorkflow() {
         const imported = {};
         const graphs = allGraphs();
+        const upscaleLoaders = graphs.flatMap((graph) => (graph._nodes ?? []).filter((n) => n.type === "UpscaleModelLoader"));
+        const singleUpscale = upscaleLoaders.length === 1
+          ? String(findWidget(upscaleLoaders[0], ["model_name"])?.value ?? "")
+          : "";
         for (const graph of graphs) {
           for (const loader of (graph._nodes ?? []).filter(isLoader)) {
             const model = loaderModelName(loader);
@@ -953,6 +991,7 @@ app.registerExtension({
               torch_compile: Boolean(findWidget(loader, ["torch_compile"])?.value ?? false),
               base: read(base, DEFAULT_PRESET.base),
               hires: { enabled: Boolean(hires), ...read(hires, DEFAULT_PRESET.hires) },
+              upscale_model: singleUpscale,
             };
           }
         }
