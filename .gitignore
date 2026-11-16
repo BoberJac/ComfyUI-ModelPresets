@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+model_presets.json
+model_presets.json.tmp
+.venv/
+.DS_Store

@@ -1,0 +1,30 @@
+{
+  "Diving v.8": {
+    "source": "model",
+    "model": "divingAnima_v80.safetensors",
+    "weight_dtype": "default",
+    "sage_attention": "auto",
+    "torch_compile": false,
+    "width": 1024,
+    "height": 1536,
+    "divide": false,
+    "round_to": 16,
+    "hires_width": 1536,
+    "hires_height": 2304,
+    "base": {
+      "steps": 25,
+      "cfg": 3,
+      "sampler": "euler",
+      "scheduler": "simple",
+      "denoise": 1
+    },
+    "hires": {
+      "enabled": false,
+      "steps": 15,
+      "cfg": 4,
+      "sampler": "euler_ancestral",
+      "scheduler": "normal",
+      "denoise": 0.45
+    }
+  }
+}
