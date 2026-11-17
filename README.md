@@ -42,7 +42,7 @@ git clone https://github.com/BoberJac/ComfyUI-ModelPresets
 Restart ComfyUI. The node appears as **Model Presets** under `loaders`.
 
 No extra Python dependencies. Sage attention / torch.compile are applied only if
-[ANIMA Booster](https://github.com/) is installed; otherwise the node loads the
+[ANIMA Booster](https://github.com/BlackSnowSkill/ANIMA_BOOSTER) is installed; otherwise the node loads the
 model with native attention and logs a warning.
 
 ## Where to put the node
