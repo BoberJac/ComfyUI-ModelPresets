@@ -1020,7 +1020,21 @@ app.registerExtension({
       refreshAutoSaveButton();
       refreshTargets();
 
-      node.addDOMWidget("model_presets_panel", "div", container, { serialize: false });
+      const panelWidget = node.addDOMWidget("model_presets_panel", "div", container, { serialize: false });
+
+      // Some renderers keep a DOM widget at its initial width when the node is
+      // resized later. Keep the panel tied to the node width explicitly.
+      const syncPanelWidth = () => {
+        const width = Math.max(240, Number(node.size?.[0] ?? 560) - 20);
+        if (panelWidget && panelWidget.width !== width) panelWidget.width = width;
+      };
+      syncPanelWidth();
+      const originalResize = node.onResize;
+      node.onResize = function () {
+        const result = originalResize?.apply(this, arguments);
+        syncPanelWidth();
+        return result;
+      };
 
       (async () => {
         try {
@@ -1062,6 +1076,7 @@ app.registerExtension({
       const originalConfigure = node.onConfigure;
       node.onConfigure = function () {
         const result = originalConfigure?.apply(this, arguments);
+        syncPanelWidth();
         setTimeout(() => {
           if (state.loadedPreset !== presetWidget.value) {
             loadPreset(presetWidget.value);
